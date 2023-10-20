@@ -28,21 +28,25 @@ def search_bub_music(plex_server_url, plex_token, query):
     search_url = f'{plex_server_url}/hubs/search?query={query}&X-Plex-Token={plex_token}&limit=10&includeCollections=1&includeExternalMedia=1&X-Plex-Language=zh'
     response = requests.get(search_url,headers=headers)
 
-    if response.status_code == 200:
-        music_url = []
-        music_data = response.json()
-        # 这里你可以处理返回的音乐数据
-        for track in music_data['MediaContainer']['Hub']:
-            if track['type'] != 'track':
-                continue
-            for part in track['Metadata']:
-                for mediaItem in part['Media']:
-                    for partItem in mediaItem['Part']:
-                        music_url.append(get_music_media(plex_server_url, plex_token, partItem['key']))
+    music_url = []
+    try:
+        if response.status_code == 200:
+            music_data = response.json()
+            # 这里你可以处理返回的音乐数据
+            for track in music_data['MediaContainer']['Hub']:
+                print(track)
+                if track['type'] != 'track':
+                    continue
+                for part in track['Metadata']:
+                    for mediaItem in part['Media']:
+                        for partItem in mediaItem['Part']:
+                            music_url.append(get_music_media(plex_server_url, plex_token, partItem['key']))
+            return music_url
+        else:
+            logging.debug(f"Failed to query music: {response.status_code} - {response.text}")
+            return music_url
+    except:
         return music_url
-    else:
-        logging.debug(f"Failed to query music: {response.status_code} - {response.text}")
-        return None
 
 # 获取音乐播放地址
 def get_music_url(plex_server_url, plex_token, media_id):
