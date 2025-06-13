@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
-
+import hashlib
 import logging
 
 from flask import Flask, abort, request
+from hashlib import md5
+import hmac
+import base64
+import urllib.parse
+from email.utils import parsedate_to_datetime
 
 from apis.xiaoai.xiaoai import (XiaoAIAudioItem, XiaoAIDirective, XiaoAIOpenResponse,
                                 XiaoAIResponse, XiaoAIStream, XiaoAIToSpeak, XiaoAITTSItem,
@@ -14,6 +19,96 @@ from apis.music.plex import search_bub_music
 
 # 是否启用本地 PLEX 音乐
 LOCAL_MUSIC = False
+
+# 小爱开放平台 key_id
+key_id = "xxxxx"
+# 小爱开放平台 sercet
+secret_key = "yyyyyyyyyyyy"
+# scope 加密默认为空
+scope = ""
+# 加密算法名
+sign_version = "MIAI-HmacSHA256-V1"
+
+def get_md5_base64(data: bytes) -> str:
+    if not data:
+        return ''
+    hash_md5 = md5()
+    hash_md5.update(data)
+    return base64.b64encode(hash_md5.digest()).decode()
+
+def normalize_query_params(query_string: str) -> str:
+    parsed = urllib.parse.parse_qs(query_string, keep_blank_values=True)
+    items = []
+    for key in sorted(parsed):
+        values = sorted(parsed[key])
+        for value in values:
+            items.append(f"{key}={value}")
+    return "&".join(items)
+
+def check_sign(request):
+
+    # 1. HTTP Method
+    http_method = request.method.upper()
+
+    # 2. URL Path（不包含 query string）
+    url_path = urllib.parse.urlparse(request.url).path
+
+    # 3. Query string 规范化
+    raw_query = urllib.parse.urlparse(request.url).query
+    normalized_query = normalize_query_params(raw_query)
+
+    # 4. 获取时间头
+    date_header = request.headers.get("X-Xiaomi-Date") or request.headers.get("Date", "")
+    try:
+        parsedate_to_datetime(date_header)  # 验证是否为 RFC1123 格式
+    except Exception:
+        return "Invalid Date Format", 400
+
+    # 5. x-original-host
+    original_host = request.headers.get('X-Original-Host')
+
+    # 6. Content-Type
+    content_type = request.headers.get("Content-Type", "")
+
+    # 7. Content-MD5
+    body = request.get_data()
+    content_md5 = request.headers.get("Content-MD5", get_md5_base64(body if body else b""))
+
+    # 8. 额外 header（MIAI-HmacSHA256-V1 不需要）
+    extra_header = ""
+
+    # 构建签名字符串
+    signature_string = (
+        f"{http_method}\n"
+        f"{url_path}\n"
+        f"{normalized_query}\n"
+        f"{date_header}\n"
+        f"{original_host}\n"
+        f"{content_type}\n"
+        f"{content_md5}\n"
+        f"{extra_header}"
+    )
+
+    # print(signature_string)
+
+    secret_bytes = base64.b64decode(secret_key.encode("utf-8"))
+    # print(secret_bytes)
+    # 计算签名
+    # expected_signature = base64.b64encode(
+    #     hmac.new(SECRET_KEY, signature_string.encode('utf-8'), sha256).digest()
+    # ).decode()
+    signature = hmac.new(secret_bytes, signature_string.encode('utf-8'), hashlib.sha256).hexdigest()
+    expected_signature = (f"{sign_version} {key_id}:{scope}:{signature}")
+    # print(expected_signature)
+
+    # 从 header 中读取传入的签名
+    provided_signature = request.headers.get("Authorization", "").strip()
+
+    # 验证签名
+    if expected_signature != provided_signature:
+        # abort(401, f"Signature mismatch.\nExpected: {expected_signature}\nProvided: {provided_signature}")
+        abort(401, f"Signature mismatch.")
+
 
 # 创建小爱文本回复
 def build_text_message(to_speak, is_session_end, open_mic, not_understand):
@@ -112,7 +207,10 @@ logging.basicConfig(filename='./app.log', level=logging.INFO)
 
 @app.route('/xiaoai', methods=['POST'])
 def index():
-    # todo 签名认证
+
+    # 签名认证
+    check_sign(request)
+
     if not request.json:
         abort(400)
     logging.debug('Input = ' + str(request.json))
