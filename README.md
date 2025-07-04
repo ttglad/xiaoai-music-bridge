@@ -15,7 +15,7 @@ $ pip3 install -r requirements.txt
 $ python app.py
 ```
 
-## 开启本地plex
+## 配置文件
 修改 config.yaml
 ```
 xiaoai:

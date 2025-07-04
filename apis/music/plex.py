@@ -14,6 +14,7 @@ def search_music(plex_server_url, plex_token, query):
     if response.status_code == 200:
         music_url = []
         music_data = response.json()
+        logging.debug(f"search_music music response: {music_data}")
         # 这里你可以处理返回的音乐数据
         for track in music_data['MediaContainer']['Metadata']:
             for media in track['Media']:
@@ -32,11 +33,13 @@ def search_bub_music(plex_server_url, plex_token, query):
     try:
         if response.status_code == 200:
             music_data = response.json()
+            logging.debug(f"search_bub_music music response: {music_data}")
             # 这里你可以处理返回的音乐数据
             for track in music_data['MediaContainer']['Hub']:
-                logging.debug(track)
+                # logging.debug(track)
                 if track['type'] != 'track':
                     continue
+                logging.debug(f"track is: " + track)
                 for part in track['Metadata']:
                     for mediaItem in part['Media']:
                         for partItem in mediaItem['Part']:

@@ -131,7 +131,7 @@ def build_music_message(to_speak, mp3_urls):
 
 
 # 获取查询到的文件播放流
-def get_search_music(key, config=None):
+def get_search_music(key, artist, config=None):
     mp3_urls = []
     if config['plex']['enable'] == True:
         mp3_urls = search_bub_music(config['plex']['server-url'], config['plex']['token'], key)
@@ -147,17 +147,15 @@ def get_search_music(key, config=None):
         target_srcs = config['musicdl']['sources']
         client = musicdl.musicdl(config=musicdl_config)
         search_results = client.search(key, target_srcs)
-        logging.debug(search_results)
+        logging.debug(f"musicdl search result is: {search_results}")
 
         for key, value in search_results.items():
-            logging.debug(key)
-            logging.debug(len(value))
+            # logging.debug(key)
+            # logging.debug(len(value))
             for item in value:
-                logging.debug(item.get("singers"))
-                logging.debug(item.get("album"))
-                logging.debug(item.get("songname"))
-                logging.debug(item.get("download_url"))
-                mp3_urls.append(item.get("download_url"))
+                logging.debug(f"singers is: " + item.get("singers") + f", album is: " + item.get("album") + f", songname is: " + item.get("songname") + f", download_url is: " + item.get("download_url"))
+                if not artist or artist == item.get("singers"):
+                    mp3_urls.append(item.get("download_url"))
             # client.download(value)
 
     return mp3_urls
@@ -167,9 +165,10 @@ def xiaoai_server(event):
     if req.request.type == 0 or req.request.type == 1:
         if req.request.slot_info.intent_name == 'Tao_Search':
             slotsList = req.request.slot_info.slots
-            musicName = [item for item in slotsList if item['name'] == 'music'][0]['value'] + "" + [item for item in slotsList if item['name'] == 'artist'][0]['value']
-            logging.debug(musicName)
-            music_url = get_search_music(musicName, config)
+            musicName = [item for item in slotsList if item['name'] == 'music'][0]['value']
+            artistName = [item for item in slotsList if item['name'] == 'artist'][0]['value']
+            logging.debug(f"Tao_Search musicName is: " + musicName + f", artistName is: " + artistName)
+            music_url = get_search_music(musicName, artistName, config)
             if len(music_url) > 0:
                 return build_music_message('马上播放', music_url)
             else:
@@ -177,8 +176,8 @@ def xiaoai_server(event):
         elif req.request.slot_info.intent_name == 'Tao_Want':
             slotsList = req.request.slot_info.slots
             musicName = [item for item in slotsList if item['name'] == 'music'][0]['value']
-            logging.debug(musicName)
-            music_url = get_search_music(musicName, config)
+            logging.debug(f"Tao_Want musicName is: " + musicName)
+            music_url = get_search_music(musicName, '', config)
             if len(music_url) > 0:
                 return build_music_message('马上播放', music_url)
             else:
