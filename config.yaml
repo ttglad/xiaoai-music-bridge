@@ -1,0 +1,34 @@
+xiaoai:
+  server: 0.0.0.0
+  port: 15333
+  debug: True
+  # NOTSET = 0,DEBUG = 10,INFO = 20,WARNING = 30,ERROR = 40,CRITICAL = 50
+  log-level: 20
+  log-path: ./app.log
+  # 小米后台key_id
+  key-id:
+  # 小米后台secret
+  secret-key:
+  scope: ""
+  sign-version: MIAI-HmacSHA256-V1
+plex:
+  enable: False
+  # plex服务地址
+  server-url:
+  # plex服务token
+  token:
+musicdl:
+  log-path: musicdl.log
+  save-dir: ./
+  search-size: 1
+  proxies: {}
+  sources:
+    - kugou
+    #- kuwo
+    #- qianqian
+    - fivesing
+    #- qqmusic
+    #- netease
+    - migu
+    #- joox
+    #- yiting

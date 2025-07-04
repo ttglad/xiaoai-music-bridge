@@ -1,7 +1,8 @@
-#!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 import hashlib
 import logging
+import os
+import yaml
 
 from flask import Flask, abort, request
 from hashlib import md5
@@ -16,18 +17,6 @@ from apis.xiaoai.xiaoai import (XiaoAIAudioItem, XiaoAIDirective, XiaoAIOpenResp
 
 from musicdl import musicdl
 from apis.music.plex import search_bub_music
-
-# 是否启用本地 PLEX 音乐
-LOCAL_MUSIC = False
-
-# 小爱开放平台 key_id
-key_id = "xxxxx"
-# 小爱开放平台 sercet
-secret_key = "yyyyyyyyyyyy"
-# scope 加密默认为空
-scope = ""
-# 加密算法名
-sign_version = "MIAI-HmacSHA256-V1"
 
 def get_md5_base64(data: bytes) -> str:
     if not data:
@@ -89,16 +78,14 @@ def check_sign(request):
         f"{extra_header}"
     )
 
-    # print(signature_string)
-
-    secret_bytes = base64.b64decode(secret_key.encode("utf-8"))
+    secret_bytes = base64.b64decode(config['xiaoai']['secret-key'].encode("utf-8"))
     # print(secret_bytes)
     # 计算签名
     # expected_signature = base64.b64encode(
     #     hmac.new(SECRET_KEY, signature_string.encode('utf-8'), sha256).digest()
     # ).decode()
     signature = hmac.new(secret_bytes, signature_string.encode('utf-8'), hashlib.sha256).hexdigest()
-    expected_signature = (f"{sign_version} {key_id}:{scope}:{signature}")
+    expected_signature = (f"{config['xiaoai']['sign-version']} {config['xiaoai']['key-id']}:{config['xiaoai']['scope']}:{signature}")
     # print(expected_signature)
 
     # 从 header 中读取传入的签名
@@ -144,25 +131,21 @@ def build_music_message(to_speak, mp3_urls):
 
 
 # 获取查询到的文件播放流
-def get_search_music(key):
+def get_search_music(key, config=None):
     mp3_urls = []
-
-    if LOCAL_MUSIC == True:
-        # 查询本地nas音乐源 本地音乐源 PLEX
-        plex_server_url = 'https://plex_server_url'
-        plex_token = 'plex_token'
-        mp3_urls = search_bub_music(plex_server_url, plex_token, key)
+    if config['plex']['enable'] == True:
+        mp3_urls = search_bub_music(config['plex']['server-url'], config['plex']['token'], key)
 
     # 查询三方源api
     if len(mp3_urls) <= 0:
-        config = {'logfilepath': 'musicdl.log', 'savedir': './', 'search_size_per_source': 1, 'proxies': {}}
-        # target_srcs = [
-        #     'kugou', 'kuwo', 'qqmusic', 'qianqian', 'fivesing', 'netease', 'migu', 'joox', 'yiting',
-        # ]
-        target_srcs = [
-             'kugou', 'qianqian', 'fivesing'
-        ]
-        client = musicdl.musicdl(config=config)
+        musicdl_config = {
+            'logfilepath': config['musicdl']['log-path'],
+            'savedir': config['musicdl']['save-dir'],
+            'search_size_per_source': config['musicdl']['search-size'],
+            'proxies': config['musicdl']['proxies']
+        }
+        target_srcs = config['musicdl']['sources']
+        client = musicdl.musicdl(config=musicdl_config)
         search_results = client.search(key, target_srcs)
         logging.debug(search_results)
 
@@ -186,7 +169,16 @@ def xiaoai_server(event):
             slotsList = req.request.slot_info.slots
             musicName = [item for item in slotsList if item['name'] == 'music'][0]['value'] + "" + [item for item in slotsList if item['name'] == 'artist'][0]['value']
             logging.debug(musicName)
-            music_url = get_search_music(musicName)
+            music_url = get_search_music(musicName, config)
+            if len(music_url) > 0:
+                return build_music_message('马上播放', music_url)
+            else:
+                return build_text_message('未找到相关歌手的歌曲', is_session_end=False, open_mic=True, not_understand=True)
+        elif req.request.slot_info.intent_name == 'Tao_Want':
+            slotsList = req.request.slot_info.slots
+            musicName = [item for item in slotsList if item['name'] == 'music'][0]['value']
+            logging.debug(musicName)
+            music_url = get_search_music(musicName, config)
             if len(music_url) > 0:
                 return build_music_message('马上播放', music_url)
             else:
@@ -200,10 +192,15 @@ def xiaoai_server(event):
     else:
         return build_text_message('我没听懂哎', is_session_end=True, open_mic=False, not_understand=True)
 
+# 加载配置文件
+def load_config():
+    config_path = os.environ.get("CONFIG_PATH", "./config.yaml")
+    with open(config_path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
 
-
+config = load_config()
 app = Flask(__name__)
-logging.basicConfig(filename='./app.log', level=logging.INFO)
+logging.basicConfig(filename=config['xiaoai']['log-path'], level=config['xiaoai']['log-level'])
 
 @app.route('/xiaoai', methods=['POST'])
 def index():
@@ -219,4 +216,4 @@ def index():
     return response
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=15333, debug=False)
+    app.run(host=config['xiaoai']['server'], port=config['xiaoai']['port'], debug=config['xiaoai']['debug'])

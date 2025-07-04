@@ -34,7 +34,7 @@ def search_bub_music(plex_server_url, plex_token, query):
             music_data = response.json()
             # 这里你可以处理返回的音乐数据
             for track in music_data['MediaContainer']['Hub']:
-                print(track)
+                logging.debug(track)
                 if track['type'] != 'track':
                     continue
                 for part in track['Metadata']:

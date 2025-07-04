@@ -16,22 +16,42 @@ $ python app.py
 ```
 
 ## 开启本地plex
-修改 app.py
+修改 config.yaml
 ```
-LOCAL_MUSIC = True
-...
-
-if LOCAL_MUSIC == True:
-    # 查询本地nas音乐源 本地音乐源 PLEX
-    plex_server_url = 'https://plex_server_url'
-    plex_token = 'plex_token'
-    mp3_urls = search_bub_music(plex_server_url, plex_token, key)
-```
-
-## 开启三方音乐源
-修改 app.py
-```
-target_srcs = ['kugou', 'kuwo', 'qqmusic', 'qianqian', 'fivesing', 'netease', 'migu', 'joox', 'yiting',]
+xiaoai:
+  server: 0.0.0.0
+  port: 15333
+  debug: True
+  # NOTSET = 0,DEBUG = 10,INFO = 20,WARNING = 30,ERROR = 40,CRITICAL = 50
+  log-level: 20
+  log-path: ./app.log
+  # 小米后台key_id
+  key-id: 
+  # 小米后台secret
+  secret-key: 
+  scope: ""
+  sign-version: MIAI-HmacSHA256-V1
+plex:
+  enable: False
+  # plex服务地址
+  server-url: 
+  # plex服务token
+  token: 
+musicdl:
+  log-path: musicdl.log
+  save-dir: ./
+  search-size: 1
+  proxies: {}
+  sources:
+    - kugou
+    #- kuwo
+    #- qianqian
+    - fivesing
+    #- qqmusic
+    #- netease
+    - migu
+    #- joox
+    #- yiting
 ```
 
 ## 致谢
