@@ -39,7 +39,7 @@ def search_bub_music(plex_server_url, plex_token, query):
                 # logging.debug(track)
                 if track['type'] != 'track':
                     continue
-                logging.debug(f"track is: " + track)
+                logging.debug(f"track is: {track}")
                 for part in track['Metadata']:
                     for mediaItem in part['Media']:
                         for partItem in mediaItem['Part']:
